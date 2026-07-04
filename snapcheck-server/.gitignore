@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Environment files — NEVER commit these
+.env
+.env.local
+.env.production
+
+# Uploads (evidence files)
+uploads/
+
+# Logs
+logs/
+*.log
+
+# Prisma
+prisma/migrations/
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,201 @@
+// Prisma schema for SnapCheck Compliance Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ─────────────────────────────────────────────────────────────────────
+
+enum Role {
+  SUBMITTER
+  MANAGER
+  RISK_TEAM
+}
+
+enum SubmissionStatus {
+  PENDING
+  SUBMITTED
+  MANAGER_APPROVED
+  MANAGER_REJECTED
+  RC_APPROVED
+  RC_REJECTED
+}
+
+enum ResponseType {
+  COMPLIANT
+  NON_COMPLIANT
+  PARTIAL_COMPLIANT
+  NA
+}
+
+enum ApprovalStage {
+  MANAGER
+  RISK_TEAM
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+enum RiskRating {
+  Low
+  Medium
+  High
+}
+
+// ── Models ────────────────────────────────────────────────────────────────────
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role     @default(SUBMITTER)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  submissions  Submission[]
+  approvals    Approval[]
+  auditLogs    AuditLog[]
+  uploadedFiles EvidenceFile[] @relation("UploadedBy")
+
+  @@map("users")
+}
+
+model Application {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  frequency   String   @default("Monthly")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  questions   Question[]
+  submissions Submission[]
+
+  @@map("applications")
+}
+
+model Question {
+  id               Int         @id @default(autoincrement())
+  applicationId    Int         @map("application_id")
+  text             String
+  category         String      @default("General")
+  required         Boolean     @default(true)
+  evidenceRequired Boolean     @default(false) @map("evidence_required")
+  active           Boolean     @default(true)
+  order            Int         @default(0)
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  application Application @relation(fields: [applicationId], references: [id])
+  answers     Answer[]
+
+  @@map("questions")
+}
+
+model Submission {
+  id            Int              @id @default(autoincrement())
+  applicationId Int              @map("application_id")
+  userId        Int              @map("user_id")
+  period        String           // e.g. "2025-01"
+  status        SubmissionStatus @default(PENDING)
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  application   Application    @relation(fields: [applicationId], references: [id])
+  user          User           @relation(fields: [userId], references: [id])
+  answers       Answer[]
+  approvals     Approval[]
+  evidenceFiles EvidenceFile[]
+  riskRating    RiskRating_?
+
+  @@unique([applicationId, userId, period])
+  @@map("submissions")
+}
+
+model Answer {
+  id           Int          @id @default(autoincrement())
+  submissionId Int          @map("submission_id")
+  questionId   Int          @map("question_id")
+  response     ResponseType @default(NA)
+  comment      String?
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  submission    Submission     @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question      Question       @relation(fields: [questionId], references: [id])
+  evidenceFiles EvidenceFile[]
+
+  @@unique([submissionId, questionId])
+  @@map("answers")
+}
+
+model EvidenceFile {
+  id           Int      @id @default(autoincrement())
+  submissionId Int      @map("submission_id")
+  answerId     Int?     @map("answer_id")
+  uploadedById Int      @map("uploaded_by_id")
+  filename     String
+  filepath     String
+  mimetype     String
+  size         Int
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  answer     Answer?    @relation(fields: [answerId], references: [id])
+  uploadedBy User       @relation("UploadedBy", fields: [uploadedById], references: [id])
+
+  @@map("evidence_files")
+}
+
+model Approval {
+  id           Int              @id @default(autoincrement())
+  submissionId Int              @map("submission_id")
+  reviewerId   Int              @map("reviewer_id")
+  stage        ApprovalStage
+  decision     ApprovalDecision
+  comment      String?
+  riskRating   RiskRating?      @map("risk_rating")
+  createdAt    DateTime         @default(now()) @map("created_at")
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reviewer   User       @relation(fields: [reviewerId], references: [id])
+
+  @@map("approvals")
+}
+
+model RiskRating_ {
+  id           Int        @id @default(autoincrement())
+  submissionId Int        @unique @map("submission_id")
+  rating       RiskRating
+  assignedById Int        @map("assigned_by_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("risk_ratings")
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?     @map("user_id")
+  action     String
+  detail     String?
+  entityType String?  @map("entity_type")
+  entityId   Int?     @map("entity_id")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
