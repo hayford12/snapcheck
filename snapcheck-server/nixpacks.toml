@@ -1,0 +1,18 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = [
+  "cd /app/snapcheck-server && npm install",
+  "cd /app/snapcheck-client && npm install",
+]
+
+[phases.build]
+cmds = [
+  "cd /app/snapcheck-client && npm run build",
+  "cp -r /app/snapcheck-client/dist /app/snapcheck-server/public",
+  "cd /app/snapcheck-server && npx prisma generate",
+]
+
+[start]
+cmd = "cd /app/snapcheck-server && node src/index.js"

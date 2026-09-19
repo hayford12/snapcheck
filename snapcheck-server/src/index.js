@@ -1,23 +1,23 @@
 require('dotenv').config()
 
-const express  = require('express')
-const cors     = require('cors')
-const path     = require('path')
-
+const express        = require('express')
+const cors           = require('cors')
+const path           = require('path')
+const helmet         = require('helmet')
+const rateLimit      = require('express-rate-limit')
+const sanitizeInput  = require('./middleware/sanitize')
 const { errorHandler }          = require('./middleware/errorHandler')
 const { logger, requestLogger } = require('./utils/logger')
-const sanitizeInput             = require('./middleware/sanitize')
 
-// ── Startup validation — fail fast if required env vars are missing ───────────
+// ── Startup validation ────────────────────────────────────────────────────────
 const REQUIRED_ENV = ['JWT_SECRET', 'DATABASE_URL']
 const missing = REQUIRED_ENV.filter(k => !process.env[k])
 if (missing.length) {
-  console.error(`[FATAL] Missing required environment variables: ${missing.join(', ')}`)
-  console.error('[FATAL] Server cannot start without these. Check your .env file.')
+  console.error(`[FATAL] Missing required env vars: ${missing.join(', ')}`)
   process.exit(1)
 }
-if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
-  console.error('[FATAL] JWT_SECRET is too short — must be at least 32 characters.')
+if (process.env.JWT_SECRET.length < 32) {
+  console.error('[FATAL] JWT_SECRET must be at least 32 characters.')
   process.exit(1)
 }
 
@@ -36,19 +36,11 @@ const app    = express()
 const PORT   = process.env.PORT || 5000
 const isProd = process.env.NODE_ENV === 'production'
 
-// ── Security headers ──────────────────────────────────────────────────────────
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff')
-  res.setHeader('X-Frame-Options', 'DENY')
-  res.setHeader('X-XSS-Protection', '1; mode=block')
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
-  if (isProd) {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
-  }
-  // Remove Express fingerprint
-  res.removeHeader('X-Powered-By')
-  next()
-})
+// ── Helmet security headers ───────────────────────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: false,        // managed separately — React needs flexibility
+  crossOriginEmbedderPolicy: false,    // needed for file downloads
+}))
 
 // ── CORS — allowlist only ─────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -57,7 +49,6 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow same-origin requests (no origin header)
     if (!origin) return callback(null, true)
     if (allowedOrigins.includes(origin) || !isProd) return callback(null, true)
     callback(new Error(`CORS: origin ${origin} not allowed`))
@@ -67,7 +58,40 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }))
 
-// Allow ngrok tunnel in dev
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+// Strict limit on login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: 'Too many login attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+})
+
+// General API limit
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  message: { message: 'Too many requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+app.use('/api/auth/login', loginLimiter)
+app.use('/api/', apiLimiter)
+
+// ── Body parsers ──────────────────────────────────────────────────────────────
+app.use(express.json({ limit: '2mb' }))
+app.use(express.urlencoded({ extended: true, limit: '2mb' }))
+
+// ── Input sanitisation ────────────────────────────────────────────────────────
+app.use(sanitizeInput)
+
+// ── HTTP request logger ───────────────────────────────────────────────────────
+app.use(requestLogger)
+
+// Allow ngrok in dev
 if (!isProd) {
   app.use((req, res, next) => {
     res.setHeader('ngrok-skip-browser-warning', 'true')
@@ -75,17 +99,7 @@ if (!isProd) {
   })
 }
 
-// ── Body parsers ──────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '2mb' }))
-app.use(express.urlencoded({ extended: true, limit: '2mb' }))
-
-// ── Input sanitisation (mounted globally) ────────────────────────────────────
-app.use(sanitizeInput)
-
-// ── HTTP request logger ───────────────────────────────────────────────────────
-app.use(requestLogger)
-
-// ── Routes ────────────────────────────────────────────────────────────────────
+// ── API Routes ────────────────────────────────────────────────────────────────
 app.use('/api/auth',         authRoutes)
 app.use('/api/applications', applicationRoutes)
 app.use('/api/questions',    questionRoutes)
@@ -103,13 +117,9 @@ app.get('/api/health', (req, res) => {
 
 // ── Serve React frontend ──────────────────────────────────────────────────────
 const frontendDist = process.env.FRONTEND_DIST || path.join(__dirname, '../public')
-app.use(express.static(frontendDist, {
-  // Don't serve index.html for /api paths
-  index: false,
-}))
+app.use(express.static(frontendDist, { index: false }))
 
 app.get('*', (req, res) => {
-  // Don't serve frontend for /api routes
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ message: 'API route not found' })
   }
@@ -121,13 +131,14 @@ app.use(errorHandler)
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  logger.info(`SnapCheck API Server started`, { port: PORT, env: process.env.NODE_ENV || 'development' })
+  logger.info('SnapCheck API Server started', { port: PORT, env: process.env.NODE_ENV || 'development' })
   console.log('')
   console.log('  SnapCheck API Server')
   console.log(`  ─────────────────────────────────────`)
   console.log(`  Running on  → http://localhost:${PORT}`)
   console.log(`  Health      → http://localhost:${PORT}/api/health`)
   console.log(`  Environment → ${process.env.NODE_ENV || 'development'}`)
+  console.log(`  Security    → Helmet + Rate Limiting + CORS + Input Sanitisation`)
   console.log('')
 })
 
