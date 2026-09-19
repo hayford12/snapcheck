@@ -7,6 +7,28 @@ const { authenticate } = require('../middleware/auth')
 const { auditLog }     = require('../middleware/errorHandler')
 
 const router = express.Router()
+// ── Account lockout (in-memory — no extra packages needed) ───────────────────
+const loginAttempts = new Map()
+const MAX_ATTEMPTS  = 5
+const LOCKOUT_MS    = 15 * 60 * 1000 // 15 minutes
+
+function checkLockout(email) {
+  const key  = email.toLowerCase()
+  const data = loginAttempts.get(key)
+  if (!data) return false
+  if (Date.now() - data.firstAttempt > LOCKOUT_MS) { loginAttempts.delete(key); return false }
+  return data.count >= MAX_ATTEMPTS
+}
+function recordFail(email) {
+  const key  = email.toLowerCase()
+  const data = loginAttempts.get(key)
+  if (!data || Date.now() - data.firstAttempt > LOCKOUT_MS) {
+    loginAttempts.set(key, { count: 1, firstAttempt: Date.now() })
+  } else { data.count++ }
+}
+function clearAttempts(email) { loginAttempts.delete(email.toLowerCase()) }
+
+
 
 // POST /api/auth/login
 router.post('/login', async (req, res, next) => {

@@ -17,6 +17,7 @@ function sanitizeValue(val) {
 function sanitizeInput(req, res, next) {
   if (req.body)  req.body  = sanitizeValue(req.body)
   if (req.query) req.query = sanitizeValue(req.query)
+  // Don't sanitize params — they are URL-encoded and handled by Express
   next()
 }
 
