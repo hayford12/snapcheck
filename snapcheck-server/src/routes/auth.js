@@ -7,46 +7,38 @@ const { authenticate } = require('../middleware/auth')
 const { auditLog }     = require('../middleware/errorHandler')
 
 const router = express.Router()
-// ── Account lockout (in-memory — no extra packages needed) ───────────────────
-// ── Account lockout (DB-backed — survives server restarts) ───────────────────
+
+// ── Account lockout ───────────────────────────────────────────────────────────
 const MAX_ATTEMPTS = 5
 const LOCKOUT_MS   = 15 * 60 * 1000
 
-async function checkLockout(email) {
-  try {
-    const key   = `FAIL:${email.toLowerCase()}`
-    const since = new Date(Date.now() - LOCKOUT_MS)
-    const count = await prisma.auditLog.count({
-      where: { action: 'LOGIN_FAIL', detail: key, createdAt: { gte: since } },
-    })
-    return count >= MAX_ATTEMPTS
-  } catch { return false }
+async function getFailCount(email) {
+  const since = new Date(Date.now() - LOCKOUT_MS)
+  return await prisma.auditLog.count({
+    where: {
+      action:    'LOGIN_FAIL',
+      detail:    email.toLowerCase(),
+      createdAt: { gte: since },
+    },
+  })
 }
 
-async function recordFail(email) {
-  try {
-    await prisma.auditLog.create({
-      data: {
-        userId:     null,
-        action:     'LOGIN_FAIL',
-        detail:     `FAIL:${email.toLowerCase()}`,
-        entityType: 'Auth',
-        entityId:   null,
-        ipAddress:  null,
-      },
-    })
-  } catch (e) { console.error('recordFail error:', e.message) }
+async function recordFail(email, ip) {
+  await prisma.auditLog.create({
+    data: {
+      action:     'LOGIN_FAIL',
+      detail:     email.toLowerCase(),
+      entityType: 'Auth',
+      ipAddress:  ip || null,
+    },
+  })
 }
 
-async function clearAttempts(email) {
-  try {
-    await prisma.auditLog.deleteMany({
-      where: { action: 'LOGIN_FAIL', detail: `FAIL:${email.toLowerCase()}` },
-    })
-  } catch {}
+async function clearFails(email) {
+  await prisma.auditLog.deleteMany({
+    where: { action: 'LOGIN_FAIL', detail: email.toLowerCase() },
+  })
 }
-
-
 
 // POST /api/auth/login
 router.post('/login', async (req, res, next) => {
@@ -56,28 +48,36 @@ router.post('/login', async (req, res, next) => {
       password: z.string().min(1),
     })
     const { email, password } = schema.parse(req.body)
+    const emailLower = email.toLowerCase()
 
-    // Check lockout before querying DB
-    if (await checkLockout(email)) {
+    // Check how many recent failures
+    const failCount = await getFailCount(emailLower)
+    console.log(`[AUTH] Login attempt for ${emailLower} — fail count: ${failCount}`)
+
+    if (failCount >= MAX_ATTEMPTS) {
+      console.log(`[AUTH] Account locked: ${emailLower}`)
       return res.status(429).json({
-        message: 'Account temporarily locked after too many failed attempts. Please try again in 15 minutes.',
+        message: `Account locked due to ${MAX_ATTEMPTS} failed attempts. Try again in 15 minutes.`,
         locked: true,
       })
     }
 
-    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } })
+    const user = await prisma.user.findUnique({ where: { email: emailLower } })
     if (!user || !user.active) {
-      await recordFail(email)
+      await recordFail(emailLower, req.ip)
+      console.log(`[AUTH] Failed login — user not found: ${emailLower}`)
       return res.status(401).json({ message: 'Invalid email or password' })
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash)
     if (!valid) {
-      await recordFail(email)
+      await recordFail(emailLower, req.ip)
+      console.log(`[AUTH] Failed login — wrong password: ${emailLower} (total fails: ${failCount + 1})`)
       return res.status(401).json({ message: 'Invalid email or password' })
     }
 
-    await clearAttempts(email)
+    // Success — clear failed attempts
+    await clearFails(emailLower)
 
     const token = jwt.sign(
       { userId: user.id, role: user.role },
@@ -97,12 +97,10 @@ router.post('/login', async (req, res, next) => {
         initials: user.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase(),
       },
     })
-  } catch (err) {
-    next(err)
-  }
+  } catch (err) { next(err) }
 })
 
-// GET /api/auth/me — returns current user from token
+// GET /api/auth/me
 router.get('/me', authenticate, async (req, res) => {
   res.json({
     success: true,
@@ -116,14 +114,13 @@ router.get('/me', authenticate, async (req, res) => {
   })
 })
 
-// POST /api/auth/logout — client-side only (just for audit trail)
+// POST /api/auth/logout
 router.post('/logout', authenticate, async (req, res) => {
   await auditLog(req.user.id, 'LOGOUT', 'User logged out', 'User', req.user.id, req)
   res.json({ message: 'Logged out' })
 })
 
-
-// POST /api/auth/refresh — issue new token if current is valid and near expiry
+// POST /api/auth/refresh
 router.post('/refresh', authenticate, async (req, res, next) => {
   try {
     const newToken = jwt.sign(
