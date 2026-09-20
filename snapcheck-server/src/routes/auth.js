@@ -8,25 +8,43 @@ const { auditLog }     = require('../middleware/errorHandler')
 
 const router = express.Router()
 // ── Account lockout (in-memory — no extra packages needed) ───────────────────
-const loginAttempts = new Map()
-const MAX_ATTEMPTS  = 5
-const LOCKOUT_MS    = 15 * 60 * 1000 // 15 minutes
+// ── Account lockout (DB-backed — survives server restarts) ───────────────────
+const MAX_ATTEMPTS = 5
+const LOCKOUT_MS   = 15 * 60 * 1000
 
-function checkLockout(email) {
-  const key  = email.toLowerCase()
-  const data = loginAttempts.get(key)
-  if (!data) return false
-  if (Date.now() - data.firstAttempt > LOCKOUT_MS) { loginAttempts.delete(key); return false }
-  return data.count >= MAX_ATTEMPTS
+async function checkLockout(email) {
+  try {
+    const key = email.toLowerCase()
+    const recent = await prisma.auditLog.findMany({
+      where: {
+        action: 'LOGIN_FAIL',
+        detail: { contains: key },
+        createdAt: { gte: new Date(Date.now() - LOCKOUT_MS) },
+      },
+    })
+    return recent.length >= MAX_ATTEMPTS
+  } catch { return false }
 }
-function recordFail(email) {
-  const key  = email.toLowerCase()
-  const data = loginAttempts.get(key)
-  if (!data || Date.now() - data.firstAttempt > LOCKOUT_MS) {
-    loginAttempts.set(key, { count: 1, firstAttempt: Date.now() })
-  } else { data.count++ }
+
+async function recordFail(email) {
+  try {
+    await prisma.auditLog.create({
+      data: { userId: null, action: 'LOGIN_FAIL', detail: `Failed login attempt for ${email.toLowerCase()}`, entityType: 'User', entityId: 0, ipAddress: null },
+    })
+  } catch {}
 }
-function clearAttempts(email) { loginAttempts.delete(email.toLowerCase()) }
+
+async function clearAttempts(email) {
+  try {
+    await prisma.auditLog.deleteMany({
+      where: {
+        action: 'LOGIN_FAIL',
+        detail: { contains: email.toLowerCase() },
+        createdAt: { gte: new Date(Date.now() - LOCKOUT_MS) },
+      },
+    })
+  } catch {}
+}
 
 
 
