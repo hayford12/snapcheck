@@ -116,14 +116,34 @@ app.get('/api/health', (req, res) => {
 })
 
 // ── Serve React frontend ──────────────────────────────────────────────────────
-const frontendDist = process.env.FRONTEND_DIST || path.join(__dirname, '../public')
+// Smart path detection — finds public folder wherever it is
+const fs = require('fs')
+const possiblePaths = [
+  process.env.FRONTEND_DIST,
+  path.join(__dirname, '../public'),
+  path.join(__dirname, '../../snapcheck-server/public'),
+  '/opt/render/project/src/snapcheck-server/public',
+  '/opt/render/project/src/public',
+].filter(Boolean)
+
+let frontendDist = possiblePaths.find(p => fs.existsSync(path.join(p, 'index.html')))
+if (!frontendDist) {
+  console.error('[WARN] Could not find frontend dist. Checked:', possiblePaths)
+  frontendDist = possiblePaths[0]
+}
+console.log('[INFO] Serving frontend from:', frontendDist)
+
 app.use(express.static(frontendDist, { index: false }))
 
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ message: 'API route not found' })
   }
-  res.sendFile(path.join(frontendDist, 'index.html'))
+  const indexPath = path.join(frontendDist, 'index.html')
+  if (!fs.existsSync(indexPath)) {
+    return res.status(404).send('Frontend not found. Please check FRONTEND_DIST configuration.')
+  }
+  res.sendFile(indexPath)
 })
 
 // ── Error handler ─────────────────────────────────────────────────────────────
