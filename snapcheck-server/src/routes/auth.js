@@ -14,34 +14,34 @@ const LOCKOUT_MS   = 15 * 60 * 1000
 
 async function checkLockout(email) {
   try {
-    const key = email.toLowerCase()
-    const recent = await prisma.auditLog.findMany({
-      where: {
-        action: 'LOGIN_FAIL',
-        detail: { contains: key },
-        createdAt: { gte: new Date(Date.now() - LOCKOUT_MS) },
-      },
+    const key   = `FAIL:${email.toLowerCase()}`
+    const since = new Date(Date.now() - LOCKOUT_MS)
+    const count = await prisma.auditLog.count({
+      where: { action: 'LOGIN_FAIL', detail: key, createdAt: { gte: since } },
     })
-    return recent.length >= MAX_ATTEMPTS
+    return count >= MAX_ATTEMPTS
   } catch { return false }
 }
 
 async function recordFail(email) {
   try {
     await prisma.auditLog.create({
-      data: { userId: null, action: 'LOGIN_FAIL', detail: `Failed login attempt for ${email.toLowerCase()}`, entityType: 'User', entityId: 0, ipAddress: null },
+      data: {
+        userId:     null,
+        action:     'LOGIN_FAIL',
+        detail:     `FAIL:${email.toLowerCase()}`,
+        entityType: 'Auth',
+        entityId:   null,
+        ipAddress:  null,
+      },
     })
-  } catch {}
+  } catch (e) { console.error('recordFail error:', e.message) }
 }
 
 async function clearAttempts(email) {
   try {
     await prisma.auditLog.deleteMany({
-      where: {
-        action: 'LOGIN_FAIL',
-        detail: { contains: email.toLowerCase() },
-        createdAt: { gte: new Date(Date.now() - LOCKOUT_MS) },
-      },
+      where: { action: 'LOGIN_FAIL', detail: `FAIL:${email.toLowerCase()}` },
     })
   } catch {}
 }
@@ -57,15 +57,27 @@ router.post('/login', async (req, res, next) => {
     })
     const { email, password } = schema.parse(req.body)
 
+    // Check lockout before querying DB
+    if (await checkLockout(email)) {
+      return res.status(429).json({
+        message: 'Account temporarily locked after too many failed attempts. Please try again in 15 minutes.',
+        locked: true,
+      })
+    }
+
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } })
     if (!user || !user.active) {
+      await recordFail(email)
       return res.status(401).json({ message: 'Invalid email or password' })
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash)
     if (!valid) {
+      await recordFail(email)
       return res.status(401).json({ message: 'Invalid email or password' })
     }
+
+    await clearAttempts(email)
 
     const token = jwt.sign(
       { userId: user.id, role: user.role },
