@@ -4,12 +4,13 @@ const jwt      = require('jsonwebtoken')
 const { z }    = require('zod')
 const prisma   = require('../db/prisma')
 const { authenticate } = require('../middleware/auth')
+const { validatePassword, isPasswordReused, savePasswordHistory, isPasswordExpired, daysUntilExpiry, POLICY } = require('../utils/passwordPolicy')
 const { auditLog }     = require('../middleware/errorHandler')
 
 const router = express.Router()
 
 // ── Account lockout ───────────────────────────────────────────────────────────
-const MAX_ATTEMPTS = 5
+const MAX_ATTEMPTS = 3  // ABSA policy: lock after 3 attempts
 const LOCKOUT_MS   = 15 * 60 * 1000
 
 async function getFailCount(email) {
@@ -87,14 +88,24 @@ router.post('/login', async (req, res, next) => {
 
     await auditLog(user.id, 'LOGIN', `User logged in`, 'User', user.id, req)
 
+    // Check password status
+    const expired      = isPasswordExpired(user.passwordChangedAt)
+    const mustChange   = user.mustChangePassword || expired
+    const daysLeft     = daysUntilExpiry(user.passwordChangedAt)
+    const expirySoon   = daysLeft <= 14 && !mustChange
+
     res.json({
       token,
       user: {
-        id:       user.id,
-        name:     user.name,
-        email:    user.email,
-        role:     user.role,
-        initials: user.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase(),
+        id:          user.id,
+        name:        user.name,
+        email:       user.email,
+        role:        user.role,
+        initials:    user.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase(),
+        mustChangePassword: mustChange,
+        passwordExpired:    expired,
+        daysUntilExpiry:    daysLeft,
+        expirySoon,
       },
     })
   } catch (err) { next(err) }
@@ -142,6 +153,68 @@ router.post('/refresh', authenticate, async (req, res, next) => {
       }
     })
   } catch (err) { next(err) }
+})
+
+
+// POST /api/auth/change-password
+router.post('/change-password', authenticate, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current and new password are required' })
+    }
+
+    // Verify current password
+    const user  = await prisma.user.findUniqueOrThrow({ where: { id: req.user.id } })
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash)
+    if (!valid) {
+      return res.status(401).json({ message: 'Current password is incorrect' })
+    }
+
+    // Validate new password against policy
+    const { valid: policyValid, errors } = validatePassword(newPassword)
+    if (!policyValid) {
+      return res.status(400).json({ message: errors[0], errors })
+    }
+
+    // Check password history
+    const reused = await isPasswordReused(prisma, req.user.id, newPassword)
+    if (reused) {
+      return res.status(400).json({ message: `Password cannot be the same as your last ${12} passwords` })
+    }
+
+    // Hash and save
+    const newHash = await bcrypt.hash(newPassword, 12)
+    await savePasswordHistory(prisma, req.user.id, newHash)
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        passwordHash:      newHash,
+        mustChangePassword: false,
+        passwordChangedAt: new Date(),
+      },
+    })
+
+    await auditLog(req.user.id, 'CHANGE_PASSWORD', 'User changed password', 'User', req.user.id, req)
+    res.json({ message: 'Password changed successfully', success: true })
+  } catch (err) { next(err) }
+})
+
+// GET /api/auth/password-policy — return policy for frontend
+router.get('/password-policy', (req, res) => {
+  res.json({
+    minLength:      POLICY.minLength,
+    historyCount:   POLICY.historyCount,
+    expiryDays:     POLICY.expiryDays,
+    maxAttempts:    POLICY.maxAttempts,
+    requirements: [
+      'At least 12 characters long',
+      'Must contain at least 3 of: uppercase letters (A-Z), lowercase letters (a-z), digits (0-9), special characters ($, #, @, !, %, ^, &, *, (, ), ,, .)',
+      `Cannot be the same as your last ${POLICY.historyCount} passwords`,
+      `Expires every ${POLICY.expiryDays} days`,
+    ]
+  })
 })
 
 module.exports = router

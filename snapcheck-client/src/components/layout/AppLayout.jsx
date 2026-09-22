@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { LayoutGrid, ClipboardList, CheckCircle, FolderOpen, Shield, BarChart2, Edit3, Settings, Bell, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
+import ChangePasswordModal from '../shared/ChangePasswordModal'
 import { useAuth } from '../../context/AuthContext'
 import { getInitials } from '../../utils/helpers'
 import { ROLE_LABELS } from '../../config/auth'
@@ -204,6 +205,12 @@ export default function AppLayout() {
       {(showNotif || showUserMenu) && (
         <div style={{ position:'fixed', inset:0, zIndex:99 }}
           onClick={() => { setShowNotif(false); setShowUserMenu(false) }} />
+      )}
+      {showChangePwd && (
+        <ChangePasswordModal
+          open={showChangePwd}
+          onClose={()=>setShowChangePwd(false)}
+        />
       )}
     </div>
   )

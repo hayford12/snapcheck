@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { getErrorMessage } from '../../utils/helpers'
 import { Spinner } from '../../components/ui/index.jsx'
+import ChangePasswordModal from '../../components/shared/ChangePasswordModal'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -9,6 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
+  const [forcedChange, setForcedChange] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -112,6 +114,13 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+      {forcedChange && (
+        <ChangePasswordModal
+          open={forcedChange}
+          forced={true}
+          onClose={() => setForcedChange(false)}
+        />
+      )}
     </div>
   )
 }

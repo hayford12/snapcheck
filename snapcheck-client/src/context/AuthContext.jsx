@@ -102,6 +102,11 @@ export function AuthProvider({ children }) {
       localStorage.setItem(USER_KEY, JSON.stringify(userData))
       setUser(userData)
 
+      // Check if password change required — don't redirect yet
+      if (userData.mustChangePassword || userData.passwordExpired) {
+        return { success: true, user: userData, mustChangePassword: true }
+      }
+
       // Redirect to intended page or role home
       const intended = intentRef.current
       intentRef.current = null

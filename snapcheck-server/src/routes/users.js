@@ -3,6 +3,7 @@ const bcrypt  = require('bcryptjs')
 const { z }   = require('zod')
 const prisma  = require('../db/prisma')
 const { authenticate, requireRole } = require('../middleware/auth')
+const { validatePassword, savePasswordHistory } = require('../utils/passwordPolicy')
 const { auditLog } = require('../middleware/errorHandler')
 
 const router = express.Router()

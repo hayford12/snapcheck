@@ -1,5 +1,3 @@
-// Prisma schema for SnapCheck Compliance Platform
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,8 +6,6 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
-// ── Enums ─────────────────────────────────────────────────────────────────────
 
 enum Role {
   SUBMITTER
@@ -49,24 +45,36 @@ enum RiskRating {
   High
 }
 
-// ── Models ────────────────────────────────────────────────────────────────────
-
 model User {
-  id           Int      @id @default(autoincrement())
-  name         String
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  role         Role     @default(SUBMITTER)
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id                  Int      @id @default(autoincrement())
+  name                String
+  email               String   @unique
+  passwordHash        String   @map("password_hash")
+  role                Role     @default(SUBMITTER)
+  active              Boolean  @default(true)
+  mustChangePassword  Boolean  @default(true) @map("must_change_password")
+  passwordChangedAt   DateTime @default(now()) @map("password_changed_at")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
-  submissions  Submission[]
-  approvals    Approval[]
-  auditLogs    AuditLog[]
+  submissions   Submission[]
+  approvals     Approval[]
+  auditLogs     AuditLog[]
   uploadedFiles EvidenceFile[] @relation("UploadedBy")
+  passwordHistory PasswordHistory[]
 
   @@map("users")
+}
+
+model PasswordHistory {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_history")
 }
 
 model Application {
@@ -85,16 +93,16 @@ model Application {
 }
 
 model Question {
-  id               Int         @id @default(autoincrement())
-  applicationId    Int         @map("application_id")
+  id               Int      @id @default(autoincrement())
+  applicationId    Int      @map("application_id")
   text             String
-  category         String      @default("General")
-  required         Boolean     @default(true)
-  evidenceRequired Boolean     @default(false) @map("evidence_required")
-  active           Boolean     @default(true)
-  order            Int         @default(0)
-  createdAt        DateTime    @default(now()) @map("created_at")
-  updatedAt        DateTime    @updatedAt @map("updated_at")
+  category         String   @default("General")
+  required         Boolean  @default(true)
+  evidenceRequired Boolean  @default(false) @map("evidence_required")
+  active           Boolean  @default(true)
+  order            Int      @default(0)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   application Application @relation(fields: [applicationId], references: [id])
   answers     Answer[]
@@ -106,7 +114,7 @@ model Submission {
   id            Int              @id @default(autoincrement())
   applicationId Int              @map("application_id")
   userId        Int              @map("user_id")
-  period        String           // e.g. "2025-01"
+  period        String
   status        SubmissionStatus @default(PENDING)
   createdAt     DateTime         @default(now()) @map("created_at")
   updatedAt     DateTime         @updatedAt @map("updated_at")
