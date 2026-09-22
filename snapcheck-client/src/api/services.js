@@ -78,6 +78,8 @@ export const usersApi = {
   toggleActive:(id)        => api.patch(`/users/${id}/toggle`),
   invite:      (email)     => api.post('/users/invite', { email }),
   delete:      (id)        => api.delete(`/users/${id}`),
+  unlock:      (id)        => api.post(`/users/${id}/unlock`),
+  resetPassword:(id)       => api.post(`/users/${id}/reset-password`),
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────────

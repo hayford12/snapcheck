@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, UserCheck, UserX, Edit2, RefreshCw, Trash2 } from 'lucide-react'
+import { Plus, UserCheck, UserX, Edit2, RefreshCw, Trash2, LockOpen, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { usersApi, appsApi } from '../../api/services'
 import { PageHeader, Tabs, Modal, Spinner } from '../../components/ui/index.jsx'
@@ -119,6 +119,23 @@ export default function AdminPage() {
     try {
       await usersApi.delete(u.id)
       toast.success('User deleted')
+      qc.invalidateQueries(['users'])
+    } catch(e) { toast.error(getErrorMessage(e)) }
+  }
+
+  async function unlockUser(u) {
+    try {
+      await usersApi.unlock(u.id)
+      toast.success(`${u.name}'s account unlocked`)
+      qc.invalidateQueries(['users'])
+    } catch(e) { toast.error(getErrorMessage(e)) }
+  }
+
+  async function resetUserPassword(u) {
+    if (!window.confirm(`Force ${u.name} to change their password on next login?`)) return
+    try {
+      await usersApi.resetPassword(u.id)
+      toast.success(`Password reset forced for ${u.name}`)
       qc.invalidateQueries(['users'])
     } catch(e) { toast.error(getErrorMessage(e)) }
   }

@@ -16,13 +16,13 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
-    try {
-      await login(email, password)
-    } catch (err) {
-      setError(getErrorMessage(err))
-    } finally {
-      setLoading(false)
+    const result = await login(email, password)
+    if (!result.success) {
+      setError(result.error || 'Login failed. Please try again.')
+    } else if (result.mustChangePassword) {
+      setForcedChange(true)
     }
+    setLoading(false)
   }
 
   return (

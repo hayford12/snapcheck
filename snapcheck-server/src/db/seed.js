@@ -5,10 +5,12 @@ const prisma = new PrismaClient()
 
 // ── Seed data ─────────────────────────────────────────────────────────────────
 
+// Default passwords meet ABSA policy — users MUST change on first login
+// Min 12 chars, uppercase, lowercase, digit, special char
 const USERS = [
-  { name: 'Sarah Jones',  email: 'submitter@company.com', role: 'SUBMITTER',  password: 'password123' },
-  { name: 'Tom Morris',   email: 'manager@company.com',   role: 'MANAGER',    password: 'password123' },
-  { name: 'Rachel Chen',  email: 'risk@company.com',      role: 'RISK_TEAM',  password: 'password123' },
+  { name: 'Sarah Jones',  email: 'submitter@company.com', role: 'SUBMITTER',  password: 'Snapcheck@2026!' },
+  { name: 'Tom Morris',   email: 'manager@company.com',   role: 'MANAGER',    password: 'Snapcheck@2026!' },
+  { name: 'Rachel Chen',  email: 'risk@company.com',      role: 'RISK_TEAM',  password: 'Snapcheck@2026!' },
 ]
 
 const APPLICATIONS = [

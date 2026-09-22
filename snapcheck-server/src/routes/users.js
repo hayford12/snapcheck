@@ -9,7 +9,7 @@ const { auditLog } = require('../middleware/errorHandler')
 const router = express.Router()
 router.use(authenticate, requireRole('RISK_TEAM'))
 
-const USER_SELECT = { id:true, name:true, email:true, role:true, active:true, createdAt:true }
+const USER_SELECT = { id:true, name:true, email:true, role:true, active:true, createdAt:true, mustChangePassword:true, passwordChangedAt:true }
 
 // GET /api/users
 router.get('/', async (req, res, next) => {
@@ -99,6 +99,32 @@ router.delete('/:id', async (req, res, next) => {
     await prisma.user.delete({ where: { id } })
     await auditLog(req.user.id, 'DELETE_USER', `Deleted user ${existing.email}`, 'User', id, req)
     res.json({ message: 'User deleted' })
+  } catch (err) { next(err) }
+})
+
+
+// POST /api/users/:id/unlock — RC only — clear login lockout for a user
+router.post('/:id/unlock', async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: parseInt(req.params.id) } })
+    await prisma.auditLog.deleteMany({
+      where: { action: 'LOGIN_FAIL', detail: user.email.toLowerCase() },
+    })
+    await auditLog(req.user.id, 'UNLOCK_ACCOUNT', `Unlocked account for ${user.email}`, 'User', user.id, req)
+    res.json({ message: `Account unlocked for ${user.name}` })
+  } catch (err) { next(err) }
+})
+
+// POST /api/users/:id/reset-password — RC only — force password reset
+router.post('/:id/reset-password', async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: parseInt(req.params.id) } })
+    await prisma.user.update({
+      where: { id: user.id },
+      data:  { mustChangePassword: true },
+    })
+    await auditLog(req.user.id, 'RESET_PASSWORD', `Forced password reset for ${user.email}`, 'User', user.id, req)
+    res.json({ message: `Password reset forced for ${user.name}` })
   } catch (err) { next(err) }
 })
 
