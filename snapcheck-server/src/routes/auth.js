@@ -5,6 +5,7 @@ const { z }    = require('zod')
 const prisma   = require('../db/prisma')
 const { authenticate } = require('../middleware/auth')
 const { validatePassword, isPasswordReused, savePasswordHistory, isPasswordExpired, daysUntilExpiry, POLICY } = require('../utils/passwordPolicy')
+const { logger } = require('../utils/logger')
 const { auditLog }     = require('../middleware/errorHandler')
 
 const router = express.Router()
@@ -53,10 +54,10 @@ router.post('/login', async (req, res, next) => {
 
     // Check how many recent failures
     const failCount = await getFailCount(emailLower)
-    console.log(`[AUTH] Login attempt for ${emailLower} — fail count: ${failCount}`)
+    logger.debug(`[AUTH] Login attempt for ${emailLower} — fail count: ${failCount}`)
 
     if (failCount >= MAX_ATTEMPTS) {
-      console.log(`[AUTH] Account locked: ${emailLower}`)
+      logger.warn(`[AUTH] Account locked for ${emailLower}`)
       return res.status(429).json({
         message: `Account locked due to ${MAX_ATTEMPTS} failed attempts. Try again in 15 minutes.`,
         locked: true,
@@ -66,14 +67,14 @@ router.post('/login', async (req, res, next) => {
     const user = await prisma.user.findUnique({ where: { email: emailLower } })
     if (!user || !user.active) {
       await recordFail(emailLower, req.ip)
-      console.log(`[AUTH] Failed login — user not found: ${emailLower}`)
+      logger.warn(`[AUTH] Failed login — user not found`, { ip: req.ip })
       return res.status(401).json({ message: 'Invalid email or password' })
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash)
     if (!valid) {
       await recordFail(emailLower, req.ip)
-      console.log(`[AUTH] Failed login — wrong password: ${emailLower} (total fails: ${failCount + 1})`)
+      logger.warn(`[AUTH] Failed login attempt`, { ip: req.ip, count: failCount + 1 })
       return res.status(401).json({ message: 'Invalid email or password' })
     }
 

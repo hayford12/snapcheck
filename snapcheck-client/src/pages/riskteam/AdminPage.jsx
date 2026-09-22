@@ -49,7 +49,7 @@ function UserModal({ user, onClose, onSuccess }) {
         </select>
       </div>
       <div className="form-group"><label className="form-label">{isEdit?'New Password (leave blank to keep current)':'Password'}</label>
-        <input className="form-control" type="password" value={form.password} onChange={e=>set('password',e.target.value)} placeholder="Min 8 characters" />
+        <input className="form-control" type="password" value={form.password} onChange={e=>set('password',e.target.value)} placeholder="Min 12 chars, uppercase, lowercase, digit, special char" />
       </div>
     </Modal>
   )

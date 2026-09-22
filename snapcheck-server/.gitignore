@@ -5,21 +5,38 @@ node_modules/
 .env
 .env.local
 .env.production
+.env.uat
+.env.*.local
 
-# Uploads (evidence files)
+# Uploads (evidence files — user data)
 uploads/
 
 # Logs
 logs/
 *.log
+npm-debug.log*
 
 # Prisma
 prisma/migrations/
 
+# Build artifacts
+dist/
+build/
+
 # Editor
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Security — never commit these
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+node_modules.zip

@@ -71,9 +71,10 @@ export default function ChangePasswordModal({ open, onClose, forced = false }) {
       })
       toast.success('Password changed successfully! Please log in with your new password.')
       if (forced) {
-        // Clear session and redirect to login
+        // Clear localStorage and hard redirect to login
         setTimeout(() => {
-          logout()
+          localStorage.clear()
+          window.location.href = '/login'
         }, 1500)
       } else {
         onClose()

@@ -190,10 +190,7 @@ async function main() {
 
   console.log('\n✅ Seed complete!\n')
   console.log('─────────────────────────────────────────')
-  console.log('Test accounts:')
-  console.log('  submitter@company.com  /  password123  (Submitter)')
-  console.log('  manager@company.com    /  password123  (Line Manager)')
-  console.log('  risk@company.com       /  password123  (Risk & Compliance)')
+  console.log('Test accounts created — check .env.example for default credentials')
   console.log('─────────────────────────────────────────\n')
 }
 

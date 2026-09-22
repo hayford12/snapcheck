@@ -48,7 +48,7 @@ app.use(helmet({
 // ── CORS — allowlist only ─────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:5173', 'http://localhost:5000']
+  : isProd ? [] : ['http://localhost:5173', 'http://localhost:5000']
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -113,9 +113,24 @@ app.use('/api/users',        userRoutes)
 app.use('/api/dashboard',    dashboardRoutes)
 app.use('/api/audit',        auditRoutes)
 
+
+// Security.txt — responsible disclosure
+app.get('/.well-known/security.txt', (req, res) => {
+  res.type('text/plain').send([
+    'Contact: mailto:security@absa.africa',
+    'Expires: 2027-01-01T00:00:00.000Z',
+    'Preferred-Languages: en',
+    'Policy: https://www.absa.africa/security-policy',
+  ].join('\n'))
+})
+
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+  // Return minimal info in production to avoid fingerprinting
+  if (isProd) {
+    return res.json({ status: 'ok' })
+  }
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), env: process.env.NODE_ENV })
 })
 
 // ── Serve React frontend ──────────────────────────────────────────────────────
@@ -161,7 +176,8 @@ app.listen(PORT, () => {
   console.log(`  Running on  → http://localhost:${PORT}`)
   console.log(`  Health      → http://localhost:${PORT}/api/health`)
   console.log(`  Environment → ${process.env.NODE_ENV || 'development'}`)
-  console.log(`  Security    → Helmet + Rate Limiting + CORS + Input Sanitisation`)
+  // Security details not logged in production
+  if (!isProd) console.log(`  Security    → Helmet + Rate Limiting + CORS + Input Sanitisation`)
   console.log('')
 })
 
