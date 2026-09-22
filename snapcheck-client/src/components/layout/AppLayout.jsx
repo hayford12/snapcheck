@@ -47,6 +47,7 @@ export default function AppLayout() {
   const [showNotif, setShowNotif]       = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [collapsed, setCollapsed]       = useState(false)
+  const [showChangePwd, setShowChangePwd] = useState(false)
 
   const badges    = useLiveBadges(user?.role)
   const baseItems = BASE_NAV[user?.role] || []
