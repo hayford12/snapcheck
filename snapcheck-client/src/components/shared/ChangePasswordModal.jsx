@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import api from '../../api/axios'
 import toast from 'react-hot-toast'
 import { Modal, Spinner } from '../ui/index.jsx'
@@ -44,6 +45,7 @@ function StrengthCheck({ password }) {
 
 export default function ChangePasswordModal({ open, onClose, forced = false }) {
   const { logout } = useAuth()
+  const navigate = useNavigate()
   const [current,  setCurrent]  = useState('')
   const [newPwd,   setNewPwd]   = useState('')
   const [confirm,  setConfirm]  = useState('')
@@ -67,10 +69,12 @@ export default function ChangePasswordModal({ open, onClose, forced = false }) {
         currentPassword: current,
         newPassword:     newPwd,
       })
-      toast.success('Password changed successfully!')
+      toast.success('Password changed successfully! Please log in with your new password.')
       if (forced) {
-        // Log out so they log in fresh with new password
-        setTimeout(() => logout(), 1500)
+        // Clear session and redirect to login
+        setTimeout(() => {
+          logout()
+        }, 1500)
       } else {
         onClose()
       }
