@@ -35,9 +35,14 @@ export function EmptyState({ icon: Icon, title, description, action }) {
 }
 
 export function Modal({ open, onClose, title, subtitle, children, footer, size = 'md' }) {
+  const mouseDownTarget = React.useRef(null)
   if (!open) return null
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="modal-overlay"
+      onMouseDown={e => { mouseDownTarget.current = e.target }}
+      onClick={e => {
+        if (e.target === e.currentTarget && mouseDownTarget.current === e.currentTarget) onClose()
+      }}>
       <div className={`modal modal-${size}`}>
         <div className="modal-header">
           <div>
@@ -52,6 +57,7 @@ export function Modal({ open, onClose, title, subtitle, children, footer, size =
     </div>
   )
 }
+
 
 export function ConfirmDialog({ open, onClose, onConfirm, title, message, confirmLabel = 'Confirm', danger }) {
   return (
