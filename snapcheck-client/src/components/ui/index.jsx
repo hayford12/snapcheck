@@ -1,3 +1,4 @@
+import React from 'react'
 import { X } from 'lucide-react'
 import { STATUS_BADGE, STATUS_LABELS, RISK_BADGE, getAppColor, getAppInitials } from '../../utils/helpers'
 
@@ -57,7 +58,6 @@ export function Modal({ open, onClose, title, subtitle, children, footer, size =
     </div>
   )
 }
-
 
 export function ConfirmDialog({ open, onClose, onConfirm, title, message, confirmLabel = 'Confirm', danger }) {
   return (
