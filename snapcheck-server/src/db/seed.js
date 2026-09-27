@@ -5,12 +5,18 @@ const prisma = new PrismaClient()
 
 // ── Seed data ─────────────────────────────────────────────────────────────────
 
-// Default passwords meet ABSA policy — users MUST change on first login
-// Min 12 chars, uppercase, lowercase, digit, special char
+// Default password loaded from environment variable — never hardcoded
+const DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD
+if (!DEFAULT_PASSWORD) {
+  console.error('❌ SEED_DEFAULT_PASSWORD environment variable is not set.')
+  console.error('   Add it to your .env file before running the seed.')
+  process.exit(1)
+}
+
 const USERS = [
-  { name: 'Sarah Jones',  email: 'submitter@company.com', role: 'SUBMITTER',  password: 'Snapcheck@2026!' },
-  { name: 'Tom Morris',   email: 'manager@company.com',   role: 'MANAGER',    password: 'Snapcheck@2026!' },
-  { name: 'Rachel Chen',  email: 'risk@company.com',      role: 'RISK_TEAM',  password: 'Snapcheck@2026!' },
+  { name: 'Sarah Jones',  email: process.env.SEED_SUBMITTER_EMAIL || 'submitter@company.com', role: 'SUBMITTER',  password: DEFAULT_PASSWORD },
+  { name: 'Tom Morris',   email: process.env.SEED_MANAGER_EMAIL   || 'manager@company.com',   role: 'MANAGER',    password: DEFAULT_PASSWORD },
+  { name: 'Rachel Chen',  email: process.env.SEED_RC_EMAIL        || 'risk@company.com',       role: 'RISK_TEAM',  password: DEFAULT_PASSWORD },
 ]
 
 const APPLICATIONS = [

@@ -15,7 +15,8 @@ function UserModal({ user, onClose, onSuccess }) {
   const [saving, setSaving] = useState(false)
   const set = (k,v) => setForm(p=>({...p,[k]:v}))
 
-  async function handleSave() {
+  async function handleSave(e) {
+    if (e) e.preventDefault()
     if (!form.name || !form.email) return toast.error('Name and email are required')
     if (!isEdit && !form.password) return toast.error('Password is required for new users')
     setSaving(true)
@@ -61,7 +62,8 @@ function AppModal({ app, onClose, onSuccess }) {
   const [saving, setSaving] = useState(false)
   const set = (k,v) => setForm(p=>({...p,[k]:v}))
 
-  async function handleSave() {
+  async function handleSave(e) {
+    if (e) e.preventDefault()
     if (!form.name) return toast.error('Snapcheck name is required')
     setSaving(true)
     try {
