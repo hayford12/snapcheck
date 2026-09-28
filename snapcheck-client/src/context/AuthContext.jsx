@@ -11,9 +11,10 @@ export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null)
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState(null)
-  const navigate   = useNavigate()
-  const location   = useLocation()
-  const intentRef  = useRef(null) // preserve last visited route
+  const navigate    = useNavigate()
+  const location    = useLocation()
+  const intentRef   = useRef(null) // preserve last visited route
+  const timeoutRef  = useRef(null) // session timeout
 
   // ── Validate session on app load ──────────────────────────────────────────
   useEffect(() => {
