@@ -98,8 +98,9 @@ model Question {
   text             String
   category         String   @default("General")
   required         Boolean  @default(true)
-  evidenceRequired Boolean  @default(false) @map("evidence_required")
-  active           Boolean  @default(true)
+  evidenceRequired    Boolean  @default(false) @map("evidence_required")
+  evidenceDescription String?  @map("evidence_description")
+  active              Boolean  @default(true)
   order            Int      @default(0)
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")

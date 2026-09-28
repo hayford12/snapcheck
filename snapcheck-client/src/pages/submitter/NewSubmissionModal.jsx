@@ -302,6 +302,12 @@ export default function NewSubmissionModal({ open, onClose, onSuccess, existingS
                   ))}
 
                   {/* New file upload */}
+                  {q.evidenceDescription && (
+                    <div style={{display:'flex',alignItems:'flex-start',gap:'6px',fontSize:'12px',color:'var(--blue)',marginBottom:'8px',padding:'8px 10px',background:'#eff6ff',borderRadius:'6px',border:'1px solid #bfdbfe'}}>
+                      <span style={{fontSize:'14px',flexShrink:0}}>📎</span>
+                      <span><strong>Required evidence:</strong> {q.evidenceDescription}</span>
+                    </div>
+                  )}
                   {errors[`evidence_${q.id}`] && (
                     <div style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'12px',color:'var(--accent)',marginBottom:'6px',padding:'6px 10px',background:'var(--accent-pale)',borderRadius:'4px'}}>
                       <AlertCircle size={12}/> {errors[`evidence_${q.id}`]}
@@ -311,7 +317,7 @@ export default function NewSubmissionModal({ open, onClose, onSuccess, existingS
                   {!(files[q.id]?.length) ? (
                     <label className="upload-zone" data-upload-zone="true" style={{borderColor:errors[`evidence_${q.id}`]?'var(--accent)':undefined}}>
                       <Upload size={24} style={{color:'var(--ink-ghost)',display:'block',margin:'0 auto'}} />
-                      <p><strong>Click to upload</strong> or drag & drop</p>
+                      <p><strong>Click to upload</strong></p>
                       <small>PDF, Excel, Word, Images up to 25MB</small>
                       <input type="file" style={{display:'none'}} multiple
                         accept=".pdf,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg,.eml,.msg"

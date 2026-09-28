@@ -40,6 +40,14 @@ function QuestionModal({ question, appId, onClose, onSuccess }) {
         </button>
       </>}
     >
+      {form.evidenceRequired && (
+        <div className="form-group">
+          <label className="form-label">Evidence Description <span style={{color:'var(--ink-ghost)',fontWeight:400}}>(tell submitters what to upload)</span></label>
+          <input className="form-control" value={form.evidenceDescription}
+            onChange={e=>set('evidenceDescription',e.target.value)}
+            placeholder="e.g. Screenshot of access report, signed approval email..." />
+        </div>
+      )}
       <div className="form-group"><label className="form-label">Question Text</label>
         <textarea className="form-control" rows={3} value={form.text} onChange={e=>set('text',e.target.value)} placeholder="Enter the compliance question…" />
       </div>

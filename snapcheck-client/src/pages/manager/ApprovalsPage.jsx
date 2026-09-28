@@ -61,6 +61,23 @@ export default function ApprovalsPage() {
     }
   }
 
+
+  const [previewFile, setPreviewFile] = useState(null)
+
+  async function previewFileHandler(fileId, filename, mimetype) {
+    try {
+      const response = await api.get(`/evidence/${fileId}/download`, { responseType: 'blob' })
+      const blob = new Blob([response.data], { type: mimetype })
+      const url  = window.URL.createObjectURL(blob)
+      setPreviewFile({ url, filename, mimetype })
+    } catch (e) { toast.error('Failed to preview file') }
+  }
+
+  function closePreview() {
+    if (previewFile?.url) window.URL.revokeObjectURL(previewFile.url)
+    setPreviewFile(null)
+  }
+
   async function downloadFile(fileId, filename) {
     try {
       const response = await api.get(`/evidence/${fileId}/download`, { responseType:'blob' })
@@ -287,6 +304,39 @@ export default function ApprovalsPage() {
             </div>
           )}
         </Modal>
+      )}
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',zIndex:1000,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}
+          onClick={closePreview}>
+          <div style={{background:'white',borderRadius:'8px',padding:'12px',maxWidth:'90vw',maxHeight:'90vh',display:'flex',flexDirection:'column',gap:'8px'}}
+            onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px'}}>
+              <span style={{fontWeight:600,fontSize:'14px'}}>{previewFile.filename}</span>
+              <div style={{display:'flex',gap:'8px'}}>
+                <a href={previewFile.url} download={previewFile.filename} className="btn btn-ghost btn-sm">
+                  <Download size={13}/> Download
+                </a>
+                <button className="btn btn-ghost btn-sm" onClick={closePreview}>✕</button>
+              </div>
+            </div>
+            {previewFile.mimetype?.startsWith('image/') ? (
+              <img src={previewFile.url} alt={previewFile.filename}
+                style={{maxWidth:'80vw',maxHeight:'75vh',objectFit:'contain',borderRadius:'4px'}} />
+            ) : previewFile.mimetype === 'application/pdf' ? (
+              <iframe src={previewFile.url} title={previewFile.filename}
+                style={{width:'80vw',height:'75vh',border:'none',borderRadius:'4px'}} />
+            ) : (
+              <div style={{padding:'40px',textAlign:'center',color:'var(--ink-soft)'}}>
+                <p>Preview not available for this file type.</p>
+                <a href={previewFile.url} download={previewFile.filename} className="btn btn-accent" style={{marginTop:'12px'}}>
+                  <Download size={14}/> Download to view
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </>
   )

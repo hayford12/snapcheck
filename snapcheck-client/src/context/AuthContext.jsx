@@ -5,6 +5,8 @@ import { TOKEN_KEY, USER_KEY, getRoleHome, isTokenExpired } from '../config/auth
 
 const AuthContext = createContext(null)
 
+const SESSION_TIMEOUT_MS = 15 * 60 * 1000
+
 export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null)
   const [loading, setLoading] = useState(true)
@@ -135,6 +137,25 @@ export function AuthProvider({ children }) {
   const saveIntendedRoute = useCallback((path) => {
     intentRef.current = path
   }, [])
+
+
+  // Reset inactivity timer on any user action
+  useEffect(() => {
+    if (!user) return
+    const resetTimer = () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      timeoutRef.current = setTimeout(() => {
+        logout()
+      }, SESSION_TIMEOUT_MS)
+    }
+    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click']
+    events.forEach(e => window.addEventListener(e, resetTimer))
+    resetTimer()
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetTimer))
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [user, logout])
 
   return (
     <AuthContext.Provider value={{
