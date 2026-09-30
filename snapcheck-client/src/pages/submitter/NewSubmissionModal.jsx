@@ -251,11 +251,35 @@ export default function NewSubmissionModal({ open, onClose, onSuccess, existingS
                     <div className="question-text">{q.text}</div>
                     <div className="question-tags">
                       <span className={`q-tag ${q.required?'q-tag-required':'q-tag-optional'}`}>{q.required?'Mandatory':'Optional'}</span>
-                      {q.evidenceRequired && <span className="q-tag q-tag-evidence">Evidence Required</span>}
+                      {q.evidenceRequired && (
+                        <span style={{display:'inline-flex',alignItems:'center',gap:'4px'}}>
+                          <span className="q-tag q-tag-evidence">Evidence Required</span>
+                          {q.evidenceDescription && (
+                            <button
+                              type="button"
+                              title="Click to see what evidence is required"
+                              onClick={e => { e.stopPropagation(); setInfoTooltip(infoTooltip === q.id ? null : q.id) }}
+                              style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:'18px',height:'18px',borderRadius:'50%',background:'#dbeafe',border:'1px solid #93c5fd',cursor:'pointer',color:'#1d4ed8',fontWeight:700,fontSize:'11px',padding:0,flexShrink:0}}>
+                              ⓘ
+                            </button>
+                          )}
+                        </span>
+                      )}
                       <span className="q-tag q-tag-category">{q.category}</span>
                     </div>
                   </div>
                 </div>
+                {/* Info tooltip */}
+                {infoTooltip === q.id && q.evidenceDescription && (
+                  <div style={{margin:'8px 0 0 0',padding:'10px 14px',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'8px',fontSize:'13px',color:'#1e40af',display:'flex',alignItems:'flex-start',gap:'8px'}}>
+                    <span style={{fontSize:'16px',flexShrink:0}}>📎</span>
+                    <div>
+                      <div style={{fontWeight:700,marginBottom:'2px'}}>Evidence Required</div>
+                      <div>{q.evidenceDescription}</div>
+                    </div>
+                    <button onClick={()=>setInfoTooltip(null)} style={{marginLeft:'auto',background:'none',border:'none',cursor:'pointer',color:'#93c5fd',fontSize:'16px',lineHeight:1,padding:'0 0 0 8px'}}>✕</button>
+                  </div>
+                )}
                 <div className="question-card-body">
                   {/* Error message */}
                   {errors[q.id] && (
@@ -302,12 +326,7 @@ export default function NewSubmissionModal({ open, onClose, onSuccess, existingS
                   ))}
 
                   {/* New file upload */}
-                  {q.evidenceDescription && (
-                    <div style={{display:'flex',alignItems:'flex-start',gap:'6px',fontSize:'12px',color:'var(--blue)',marginBottom:'8px',padding:'8px 10px',background:'#eff6ff',borderRadius:'6px',border:'1px solid #bfdbfe'}}>
-                      <span style={{fontSize:'14px',flexShrink:0}}>📎</span>
-                      <span><strong>Required evidence:</strong> {q.evidenceDescription}</span>
-                    </div>
-                  )}
+
                   {errors[`evidence_${q.id}`] && (
                     <div style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'12px',color:'var(--accent)',marginBottom:'6px',padding:'6px 10px',background:'var(--accent-pale)',borderRadius:'4px'}}>
                       <AlertCircle size={12}/> {errors[`evidence_${q.id}`]}
