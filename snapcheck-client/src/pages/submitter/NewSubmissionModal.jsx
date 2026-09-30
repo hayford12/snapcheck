@@ -253,15 +253,24 @@ export default function NewSubmissionModal({ open, onClose, onSuccess, existingS
                     <div className="question-tags">
                       <span className={`q-tag ${q.required?'q-tag-required':'q-tag-optional'}`}>{q.required?'Mandatory':'Optional'}</span>
                       {q.evidenceRequired && (
-                        <span style={{display:'inline-flex',alignItems:'center',gap:'4px'}}>
+                        <span style={{display:'inline-flex',alignItems:'center',gap:'6px'}}>
                           <span className="q-tag q-tag-evidence">Evidence Required</span>
                           {q.evidenceDescription && (
                             <button
                               type="button"
-                              title="Click to see what evidence is required"
+                              title="View required evidence"
                               onClick={e => { e.stopPropagation(); setInfoTooltip(infoTooltip === q.id ? null : q.id) }}
-                              style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:'18px',height:'18px',borderRadius:'50%',background:'#dbeafe',border:'1px solid #93c5fd',cursor:'pointer',color:'#1d4ed8',fontWeight:700,fontSize:'11px',padding:0,flexShrink:0}}>
-                              ⓘ
+                              style={{
+                                display:'inline-flex',alignItems:'center',justifyContent:'center',
+                                width:'20px',height:'20px',borderRadius:'50%',
+                                background: infoTooltip === q.id ? '#B0001A' : 'white',
+                                border:'1.5px solid #B0001A',
+                                cursor:'pointer',
+                                color: infoTooltip === q.id ? 'white' : '#B0001A',
+                                fontWeight:700,fontSize:'12px',padding:0,flexShrink:0,
+                                transition:'all 0.15s ease',
+                              }}>
+                              i
                             </button>
                           )}
                         </span>
@@ -270,15 +279,31 @@ export default function NewSubmissionModal({ open, onClose, onSuccess, existingS
                     </div>
                   </div>
                 </div>
-                {/* Info tooltip */}
+                {/* Evidence info panel */}
                 {infoTooltip === q.id && q.evidenceDescription && (
-                  <div style={{margin:'8px 0 0 0',padding:'10px 14px',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'8px',fontSize:'13px',color:'#1e40af',display:'flex',alignItems:'flex-start',gap:'8px'}}>
-                    <span style={{fontSize:'16px',flexShrink:0}}>📎</span>
-                    <div>
-                      <div style={{fontWeight:700,marginBottom:'2px'}}>Evidence Required</div>
-                      <div>{q.evidenceDescription}</div>
+                  <div style={{
+                    margin:'10px 0 0 0',
+                    padding:'12px 16px',
+                    background:'#fdecea',
+                    border:'1.5px solid #B0001A',
+                    borderLeft:'4px solid #B0001A',
+                    borderRadius:'6px',
+                    fontSize:'13px',
+                    color:'#1a1a2e',
+                    display:'flex',
+                    alignItems:'flex-start',
+                    gap:'10px',
+                  }}>
+                    <div style={{flexShrink:0,width:'24px',height:'24px',borderRadius:'50%',background:'#B0001A',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:'13px',marginTop:'1px'}}>i</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,color:'#B0001A',marginBottom:'4px',fontSize:'12px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Evidence Required</div>
+                      <div style={{color:'#374151',lineHeight:'1.5'}}>{q.evidenceDescription}</div>
                     </div>
-                    <button onClick={()=>setInfoTooltip(null)} style={{marginLeft:'auto',background:'none',border:'none',cursor:'pointer',color:'#93c5fd',fontSize:'16px',lineHeight:1,padding:'0 0 0 8px'}}>✕</button>
+                    <button
+                      onClick={()=>setInfoTooltip(null)}
+                      style={{background:'none',border:'none',cursor:'pointer',color:'#9ca3af',fontSize:'18px',lineHeight:1,padding:'0',flexShrink:0,marginTop:'-2px'}}>
+                      ✕
+                    </button>
                   </div>
                 )}
                 <div className="question-card-body">
