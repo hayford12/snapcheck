@@ -22,10 +22,11 @@ router.get('/app/:appId', async (req, res, next) => {
 router.post('/app/:appId', requireRole('RISK_TEAM'), async (req, res, next) => {
   try {
     const schema = z.object({
-      text:             z.string().min(1),
-      category:         z.string().default('General'),
-      required:         z.boolean().default(true),
-      evidenceRequired: z.boolean().default(false),
+      text:                z.string().min(1),
+      category:            z.string().default('General'),
+      required:            z.boolean().default(true),
+      evidenceRequired:    z.boolean().default(false),
+      evidenceDescription: z.string().optional().nullable(),
     })
     const data = schema.parse(req.body)
 
