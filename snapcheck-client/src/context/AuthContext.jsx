@@ -143,20 +143,25 @@ export function AuthProvider({ children }) {
   // Reset inactivity timer on any user action
   useEffect(() => {
     if (!user) return
+    const logoutFn = () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+      localStorage.removeItem('snapcheck_token')
+      localStorage.removeItem('snapcheck_user')
+      window.location.href = '/login'
+    }
     const resetTimer = () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
-      timeoutRef.current = setTimeout(() => {
-        logout()
-      }, SESSION_TIMEOUT_MS)
+      timeoutRef.current = setTimeout(logoutFn, SESSION_TIMEOUT_MS)
     }
-    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click']
-    events.forEach(e => window.addEventListener(e, resetTimer))
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click']
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }))
     resetTimer()
     return () => {
       events.forEach(e => window.removeEventListener(e, resetTimer))
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
-  }, [user, logout])
+  }, [user])
 
   return (
     <AuthContext.Provider value={{
