@@ -48,11 +48,12 @@ router.post('/app/:appId', requireRole('RISK_TEAM'), async (req, res, next) => {
 router.put('/:id', requireRole('RISK_TEAM'), async (req, res, next) => {
   try {
     const schema = z.object({
-      text:             z.string().min(1).optional(),
-      category:         z.string().optional(),
-      required:         z.boolean().optional(),
-      evidenceRequired: z.boolean().optional(),
-      order:            z.number().optional(),
+      text:                z.string().min(1).optional(),
+      category:            z.string().optional(),
+      required:            z.boolean().optional(),
+      evidenceRequired:    z.boolean().optional(),
+      evidenceDescription: z.string().optional().nullable(),
+      order:               z.number().optional(),
     })
     const data = schema.parse(req.body)
     const q = await prisma.question.update({ where: { id: parseInt(req.params.id) }, data })

@@ -9,10 +9,11 @@ import { getErrorMessage } from '../../utils/helpers'
 function QuestionModal({ question, appId, onClose, onSuccess }) {
   const isEdit = !!question
   const [form, setForm] = useState({
-    text:             question?.text||'',
-    category:         question?.category||'General',
-    required:         question?.required??true,
-    evidenceRequired: question?.evidenceRequired??false,
+    text:                question?.text||'',
+    category:            question?.category||'General',
+    required:            question?.required??true,
+    evidenceRequired:    question?.evidenceRequired??false,
+    evidenceDescription: question?.evidenceDescription||'',
   })
   const [saving, setSaving] = useState(false)
   const set = (k,v) => setForm(p=>({...p,[k]:v}))
