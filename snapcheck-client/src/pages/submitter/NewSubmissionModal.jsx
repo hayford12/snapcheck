@@ -24,6 +24,7 @@ export default function NewSubmissionModal({ open, onClose, onSuccess, existingS
   const [existingFiles, setExistingFiles] = useState([])  // already uploaded files
   const [submitting,  setSubmitting]  = useState(false)
   const [errors,      setErrors]      = useState({})
+  const [infoTooltip, setInfoTooltip] = useState(null)
 
   const { data: apps = [] } = useQuery({
     queryKey:['applications'], queryFn:() => appsApi.getAll().then(r=>r.data), enabled:open,
