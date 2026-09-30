@@ -197,8 +197,14 @@ router.post('/change-password', authenticate, async (req, res, next) => {
       },
     })
 
+    // Issue a new token so the user stays logged in
+    const newToken = require('jsonwebtoken').sign(
+      { userId: req.user.id, role: req.user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+    )
     await auditLog(req.user.id, 'CHANGE_PASSWORD', 'User changed password', 'User', req.user.id, req)
-    res.json({ message: 'Password changed successfully', success: true })
+    res.json({ message: 'Password changed successfully', success: true, token: newToken })
   } catch (err) { next(err) }
 })
 

@@ -255,6 +255,10 @@ export default function ApprovalsPage() {
                             <span className="evidence-name">{f.filename}</span>
                             <span className="evidence-size">{formatFileSize(f.size)}</span>
                             <button className="btn btn-ghost btn-sm" style={{ marginLeft:'auto', padding:'3px 8px' }}
+                              onClick={()=>previewFileHandler(f.id, f.filename, f.mimetype)} title="Preview">
+                              <Eye size={12}/>
+                            </button>
+                            <button className="btn btn-ghost btn-sm" style={{ padding:'3px 8px' }}
                               onClick={()=>downloadFile(f.id, f.filename)} title="Download">
                               <Download size={12}/>
                             </button>
@@ -280,6 +284,10 @@ export default function ApprovalsPage() {
                       <span className="evidence-name">{f.filename}</span>
                       <span className="evidence-size">{formatFileSize(f.size)}</span>
                       <button className="btn btn-ghost btn-sm" style={{ marginLeft:'auto', padding:'4px 8px' }}
+                        onClick={()=>previewFileHandler(f.id, f.filename, f.mimetype)} title="Preview">
+                        <Eye size={13}/>
+                      </button>
+                      <button className="btn btn-ghost btn-sm" style={{ padding:'4px 8px' }}
                         onClick={()=>downloadFile(f.id, f.filename)} title="Download">
                         <Download size={13}/>
                       </button>

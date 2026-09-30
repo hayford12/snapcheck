@@ -65,18 +65,23 @@ export default function ChangePasswordModal({ open, onClose, forced = false }) {
 
     setLoading(true)
     try {
-      await api.post('/auth/change-password', {
+      const res = await api.post('/auth/change-password', {
         currentPassword: current,
         newPassword:     newPwd,
       })
-      toast.success('Password changed successfully! Please log in with your new password.')
+      // Update token if returned (keeps user logged in for voluntary changes)
+      if (res.data?.token) {
+        localStorage.setItem('snapcheck_token', res.data.token)
+        api.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`
+      }
       if (forced) {
-        // Clear localStorage and hard redirect to login
+        toast.success('Password changed successfully! Please log in with your new password.')
         setTimeout(() => {
           localStorage.clear()
           window.location.href = '/login'
         }, 1500)
       } else {
+        toast.success('Password changed successfully!')
         onClose()
       }
     } catch (err) {
