@@ -6,6 +6,31 @@ const { authenticate }  = require('../middleware/auth')
 const { auditLog }      = require('../middleware/errorHandler')
 const upload            = require('../middleware/upload')
 
+// SC-018: base directory all uploads must resolve under
+const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || './uploads')
+
+// SC-014: sanitize a filename for safe use in Content-Disposition header.
+// Strips path separators, control characters, and quotes; falls back to 'download'.
+function safeFilename(name) {
+  const base = path.basename(name || '')           // strip any directory component
+    .replace(/[\x00-\x1f\x7f"\\]/g, '_')          // control chars + quote + backslash → _
+    .replace(/\s+/g, '_')                           // whitespace → _
+    .trim()
+  return base || 'download'
+}
+
+// SC-018: resolve the stored filepath against UPLOAD_DIR and reject traversal attempts.
+function safeResolvePath(storedPath) {
+  // Support both absolute (legacy) and relative paths stored in DB
+  const resolved = path.isAbsolute(storedPath)
+    ? path.resolve(storedPath)
+    : path.resolve(UPLOAD_DIR, storedPath)
+  if (!resolved.startsWith(UPLOAD_DIR + path.sep) && resolved !== UPLOAD_DIR) {
+    return null   // traversal detected
+  }
+  return resolved
+}
+
 const router = express.Router()
 router.use(authenticate)
 
@@ -38,19 +63,26 @@ router.post('/:submissionId', upload.array('file', 10), async (req, res, next) =
       return res.status(400).json({ message: 'No files uploaded' })
     }
 
-    const records = await Promise.all(req.files.map(f =>
-      prisma.evidenceFile.create({
+    const records = await Promise.all(req.files.map(f => {
+      // SC-018: store path relative to UPLOAD_DIR so the DB value is portable
+      // and cannot encode an absolute traversal path
+      const absPath = path.resolve(f.path)
+      const relPath = absPath.startsWith(UPLOAD_DIR + path.sep)
+        ? absPath.slice(UPLOAD_DIR.length + 1)
+        : absPath  // fallback: store absolute (safeResolvePath will still guard download)
+
+      return prisma.evidenceFile.create({
         data: {
           submissionId,
           answerId:     answerId || null,
           uploadedById: req.user.id,
           filename:     f.originalname,
-          filepath:     f.path,
+          filepath:     relPath,
           mimetype:     f.mimetype,
           size:         f.size,
         },
       })
-    ))
+    }))
 
     await auditLog(req.user.id, 'UPLOAD_EVIDENCE', `Uploaded ${records.length} file(s) to submission ${submissionId}`, 'EvidenceFile', submissionId, req)
     res.status(201).json(records)
@@ -87,18 +119,27 @@ router.get('/:id/download', async (req, res, next) => {
     const allowed = await canAccessSubmission(req.user, file.submissionId)
     if (!allowed) return res.status(403).json({ message: 'Access denied' })
 
-    if (!fs.existsSync(file.filepath)) {
+    // SC-018: resolve and validate the path is inside UPLOAD_DIR
+    const resolvedPath = safeResolvePath(file.filepath)
+    if (!resolvedPath) {
+      return res.status(400).json({ message: 'Invalid file path' })
+    }
+
+    if (!fs.existsSync(resolvedPath)) {
       return res.status(404).json({ message: 'File not found on disk' })
     }
 
-    // Security headers for file download
-    res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`)
+    // SC-014: sanitize filename before injecting into Content-Disposition header
+    const safe = safeFilename(file.filename)
+    // RFC 5987 encoding for non-ASCII filenames; ASCII-safe fallback in filename=
+    const encoded = encodeURIComponent(safe)
+    res.setHeader('Content-Disposition', `attachment; filename="${safe}"; filename*=UTF-8''${encoded}`)
     res.setHeader('Content-Type', file.mimetype)
     res.setHeader('X-Content-Type-Options', 'nosniff')
     res.setHeader('Cache-Control', 'no-store')
 
     await auditLog(req.user.id, 'DOWNLOAD_EVIDENCE', `Downloaded file ${file.filename}`, 'EvidenceFile', file.id, req)
-    res.download(file.filepath, file.filename)
+    res.download(resolvedPath, safe)
   } catch (err) { next(err) }
 })
 
@@ -111,7 +152,8 @@ router.delete('/:id', async (req, res, next) => {
       return res.status(403).json({ message: 'Cannot delete this file' })
     }
 
-    if (fs.existsSync(file.filepath)) fs.unlinkSync(file.filepath)
+    const resolvedForDelete = safeResolvePath(file.filepath)
+    if (resolvedForDelete && fs.existsSync(resolvedForDelete)) fs.unlinkSync(resolvedForDelete)
     await prisma.evidenceFile.delete({ where: { id: file.id } })
     await auditLog(req.user.id, 'DELETE_EVIDENCE', `Deleted file ${file.filename}`, 'EvidenceFile', file.id, req)
     res.json({ message: 'Deleted' })

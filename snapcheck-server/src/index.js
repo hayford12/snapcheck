@@ -37,24 +37,40 @@ const app    = express()
 const PORT   = process.env.PORT || 5000
 const isProd = process.env.NODE_ENV === 'production'
 
-// Trust proxy — required for Render, Railway and other cloud platforms
-app.set('trust proxy', 1)
+// SC-011: trust only the known proxy CIDR rather than all X-Forwarded-For headers.
+// On Render the proxy IP range is in TRUSTED_PROXY_CIDR; falls back to loopback-only.
+app.set('trust proxy', process.env.TRUSTED_PROXY_CIDR || 'loopback')
 
 // ── Helmet security headers ───────────────────────────────────────────────────
+// SC-005: enable Content-Security-Policy. The React SPA is served from the same
+// origin so 'self' covers all script/style/fetch. Tighten further once SSO is live.
 app.use(helmet({
-  contentSecurityPolicy: false,        // managed separately — React needs flexibility
-  crossOriginEmbedderPolicy: false,    // needed for file downloads
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:     ["'self'"],
+      scriptSrc:      ["'self'"],
+      styleSrc:       ["'self'", "'unsafe-inline'"],   // inline styles used by the SPA
+      imgSrc:         ["'self'", "data:"],
+      connectSrc:     ["'self'"],
+      fontSrc:        ["'self'", "data:"],
+      objectSrc:      ["'none'"],
+      frameAncestors: ["'none'"],                       // prevents clickjacking
+      upgradeInsecureRequests: isProd ? [] : undefined,
+    },
+  },
+  crossOriginEmbedderPolicy: false,    // needed for file downloads / previews
 }))
 
-// ── CORS — allowlist only ─────────────────────────────────────────────────────
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : isProd ? [] : ['http://localhost:5173', 'http://localhost:5000']
+// ── CORS — strict allowlist in ALL environments (SC-015) ─────────────────────
+// Add every legitimate origin (local dev + deployed) to ALLOWED_ORIGINS in .env
+// e.g. ALLOWED_ORIGINS=http://localhost:5173,https://snapcheck.onrender.com
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:5000')
+  .split(',').map(o => o.trim()).filter(Boolean)
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true)
-    if (allowedOrigins.includes(origin) || !isProd) return callback(null, true)
+    // Allow server-to-server requests (no Origin header) and whitelisted origins
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
     callback(new Error(`CORS: origin ${origin} not allowed`))
   },
   credentials: true,

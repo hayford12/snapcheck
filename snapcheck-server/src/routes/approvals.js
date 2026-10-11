@@ -46,7 +46,8 @@ router.get('/submission/:id', async (req, res, next) => {
 })
 
 // POST /api/approvals/:id/manager-approve
-router.post('/:id/manager-approve', requireRole('MANAGER', 'RISK_TEAM'), async (req, res, next) => {
+// SC-012: only MANAGER role may act at this stage — RC cannot skip the manager step
+router.post('/:id/manager-approve', requireRole('MANAGER'), async (req, res, next) => {
   try {
     const { comment } = z.object({ comment: z.string().min(1) }).parse(req.body)
     const sub = await prisma.submission.findUniqueOrThrow({ where: { id: parseInt(req.params.id) } })
@@ -77,7 +78,8 @@ router.post('/:id/manager-approve', requireRole('MANAGER', 'RISK_TEAM'), async (
 })
 
 // POST /api/approvals/:id/manager-reject
-router.post('/:id/manager-reject', requireRole('MANAGER', 'RISK_TEAM'), async (req, res, next) => {
+// SC-012: only MANAGER role
+router.post('/:id/manager-reject', requireRole('MANAGER'), async (req, res, next) => {
   try {
     const { comment } = z.object({ comment: z.string().min(1) }).parse(req.body)
     const sub = await prisma.submission.findUniqueOrThrow({ where: { id: parseInt(req.params.id) } })
@@ -108,6 +110,7 @@ router.post('/:id/manager-reject', requireRole('MANAGER', 'RISK_TEAM'), async (r
 })
 
 // POST /api/approvals/:id/rc-approve — RC final approval with risk rating
+// SC-012: prevent same person from approving at both stages
 router.post('/:id/rc-approve', requireRole('RISK_TEAM'), async (req, res, next) => {
   try {
     const schema = z.object({
@@ -119,6 +122,14 @@ router.post('/:id/rc-approve', requireRole('RISK_TEAM'), async (req, res, next) 
 
     if (sub.status !== 'MANAGER_APPROVED') {
       return res.status(400).json({ message: `Cannot RC-approve from status ${sub.status}` })
+    }
+
+    // SC-012: dual-approval integrity — RC approver must not be the same person who approved at manager stage
+    const managerApproval = await prisma.approval.findFirst({
+      where: { submissionId: sub.id, stage: 'MANAGER', decision: 'APPROVED' },
+    })
+    if (managerApproval && managerApproval.reviewerId === req.user.id) {
+      return res.status(403).json({ message: 'Segregation of duties: you approved this at the manager stage and cannot also approve at the RC stage.' })
     }
 
     await prisma.$transaction([

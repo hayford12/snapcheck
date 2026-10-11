@@ -54,16 +54,32 @@ model User {
   active              Boolean  @default(true)
   mustChangePassword  Boolean  @default(true) @map("must_change_password")
   passwordChangedAt   DateTime @default(now()) @map("password_changed_at")
+  // SC-003/SC-019: increment on password change / admin unlock to invalidate all existing JWTs
+  tokenVersion        Int      @default(0) @map("token_version")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
-  submissions   Submission[]
-  approvals     Approval[]
-  auditLogs     AuditLog[]
-  uploadedFiles EvidenceFile[] @relation("UploadedBy")
+  submissions    Submission[]
+  approvals      Approval[]
+  auditLogs      AuditLog[]
+  uploadedFiles  EvidenceFile[] @relation("UploadedBy")
   passwordHistory PasswordHistory[]
+  loginAttempts  LoginAttempt[]
 
   @@map("users")
+}
+
+// SC-002: separate table for failed login tracking — never deleted, only queried
+model LoginAttempt {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("login_attempts")
 }
 
 model PasswordHistory {

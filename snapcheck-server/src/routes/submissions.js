@@ -170,10 +170,20 @@ router.post('/:id/submit', async (req, res, next) => {
 })
 
 // GET /api/submissions/:id/answers
+// SC-007: submitters may only read answers that belong to their own submission
 router.get('/:id/answers', async (req, res, next) => {
   try {
+    const submissionId = parseInt(req.params.id)
+
+    // Ownership check for submitters
+    if (req.user.role === 'SUBMITTER') {
+      const sub = await prisma.submission.findUnique({ where: { id: submissionId }, select: { userId: true } })
+      if (!sub) return res.status(404).json({ message: 'Submission not found' })
+      if (sub.userId !== req.user.id) return res.status(403).json({ message: 'Access denied' })
+    }
+
     const answers = await prisma.answer.findMany({
-      where:   { submissionId: parseInt(req.params.id) },
+      where:   { submissionId },
       include: { question: true },
       orderBy: { question: { order: 'asc' } },
     })

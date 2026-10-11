@@ -1,5 +1,6 @@
 const jwt     = require('jsonwebtoken')
 const prisma  = require('../db/prisma')
+const { isBlacklisted } = require('../utils/tokenBlacklist')
 
 async function authenticate(req, res, next) {
   const header = req.headers.authorization
@@ -10,12 +11,25 @@ async function authenticate(req, res, next) {
   const token = header.split(' ')[1]
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET)
-    const user    = await prisma.user.findUnique({ where: { id: payload.userId } })
+
+    // SC-001: reject tokens that have been explicitly revoked (logout / password change)
+    if (isBlacklisted(payload.jti)) {
+      return res.status(401).json({ message: 'Token has been revoked. Please log in again.' })
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: payload.userId } })
 
     if (!user || !user.active) {
       return res.status(401).json({ message: 'User not found or inactive' })
     }
 
+    // SC-003: reject tokens issued before a password change (tokenVersion mismatch)
+    if (payload.tv !== undefined && payload.tv !== user.tokenVersion) {
+      return res.status(401).json({ message: 'Session invalidated. Please log in again.' })
+    }
+
+    // Expose the raw payload so routes can read jti/exp for blacklisting
+    req.tokenPayload = payload
     req.user = user
     next()
   } catch {

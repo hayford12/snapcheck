@@ -23,7 +23,8 @@
     "zod": "^3.23.8",
     "xss": "^1.0.15",
     "helmet": "^8.0.0",
-    "express-rate-limit": "^7.5.0"
+    "express-rate-limit": "^7.5.0",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.9",
